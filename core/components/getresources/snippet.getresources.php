@@ -5,7 +5,7 @@
  * A general purpose Resource listing and summarization snippet for MODX 2.x.
  *
  * @author Jason Coward
- * @copyright Copyright 2010-2015, Jason Coward
+ * @copyright Copyright 2010-2013, Jason Coward
  *
  * TEMPLATES
  *
@@ -58,6 +58,10 @@
  *
  * where - (Opt) A JSON expression of criteria to build any additional where clauses from. An example would be
  * &where=`{{"alias:LIKE":"foo%", "OR:alias:LIKE":"%bar"},{"OR:pagetitle:=":"foobar", "AND:description:=":"raboof"}}`
+ *
+ * plainWhere - (Opt) A SQL expression of criteria to build any additional complex where clauses from 
+ * (like CASE WHEN or stored functions return values). An example would be
+ * &plainWhere=`MY_STORED_FUNCTION ( modResource.publishedby, modResource.editedby ) = 1`
  *
  * sortby - (Opt) Field to sort by or a JSON array, e.g. {"publishedon":"ASC","createdon":"DESC"} [default=publishedon]
  * sortbyTV - (opt) A Template Variable name to sort by (if supplied, this precedes the sortby value) [default=]
@@ -214,6 +218,9 @@ $parents = array_merge($parentArray, $children);
 
 /* build query */
 $criteria = array("modResource.parent IN (" . implode(',', $parents) . ")");
+if ( isset( $plainWhere ) )
+	$criteria[] = $plainWhere;
+
 if ($contextSpecified) {
     $contextResourceTbl = $modx->getTableName('modContextResource');
     $criteria[] = "(modResource.context_key IN ({$context}) OR EXISTS(SELECT 1 FROM {$contextResourceTbl} ctx WHERE ctx.resource = modResource.id AND ctx.context_key IN ({$context})))";
@@ -414,9 +421,6 @@ if (!empty($sortby)) {
     }
     if (is_array($sorts)) {
         while (list($sort, $dir) = each($sorts)) {
-            if ($sort == 'resources' && !empty($resources)) {
-                $sort = 'FIELD(modResource.id, ' . implode($resources,',') . ')';
-            }
             if ($sortbyEscaped) $sort = $modx->escape($sort);
             if (!empty($sortbyAlias)) $sort = $modx->escape($sortbyAlias) . ".{$sort}";
             $criteria->sortby($sort, $dir);
